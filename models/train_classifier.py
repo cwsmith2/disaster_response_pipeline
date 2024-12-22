@@ -7,10 +7,10 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.multioutput import MultiOutputClassifier
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
+from lightgbm import LGBMClassifier
 import nltk
 nltk.download(['punkt', 'wordnet','punkt_tab'])
 
@@ -39,6 +39,12 @@ def load_data(database_filepath):
     if not non_binary_columns.empty:
         raise ValueError("Non-binary values found in Y")
     
+    # Filter out categories with a single unique value
+    single_class_columns = [col for col in Y.columns if Y[col].nunique() == 1]
+    if single_class_columns:
+        print(f"Removing single-class columns: {single_class_columns}")
+        Y = Y.drop(columns=single_class_columns)
+
     category_names = Y.columns.tolist()
     return X, Y, category_names
 
@@ -66,17 +72,21 @@ def build_model():
         cv: GridSearchCV. Grid search model object.
     """
     pipeline = Pipeline([
-    ('vect', CountVectorizer(tokenizer=tokenize, token_pattern=None)),  # Avoid token_pattern warning
-    ('tfidf', TfidfTransformer()),
-    ('clf', MultiOutputClassifier(RandomForestClassifier()))
+        ('vect', CountVectorizer(tokenizer=tokenize, token_pattern=None)),
+        ('tfidf', TfidfTransformer()),
+        ('clf', MultiOutputClassifier(LGBMClassifier(force_row_wise=True, verbose=-1)))
     ])
 
     parameters = {
+        'clf__estimator__boosting_type': ['gbdt'],
+        'clf__estimator__num_leaves': [31],
         'clf__estimator__n_estimators': [50, 100],
-        'clf__estimator__min_samples_split': [2, 4]
-    }
+        'clf__estimator__learning_rate': [0.1],
+        'clf__estimator__min_data_in_leaf': [1, 5],  # Allow smaller leaf sizes
+        'clf__estimator__scale_pos_weight': [1, 2]  # Adjust for imbalanced classes
+    }        
 
-    cv = GridSearchCV(pipeline, param_grid=parameters, verbose=3, n_jobs=-1)
+    cv = GridSearchCV(pipeline, param_grid=parameters, verbose=1, n_jobs=-1)
     return cv
 
 def evaluate_model(model, X_test, Y_test, category_names):
