@@ -1,11 +1,54 @@
-<!doctype html>
-<html>
-<head>
-    <title>Error</title>
-</head>
-<body>
-    <h1>Error</h1>
-    <p>{{ error_message }}</p>
-    <a href="/">Back to Home</a>
-</body>
-</html>
+{% extends "master.html" %}
+
+{% block title %}Error{% endblock %}
+
+{% block content %}
+<div class="container text-center">
+    <h1 class="text-danger">An Error Occurred</h1>
+    <p class="lead">{{ error_message }}</p>
+    
+    <!-- Error Image -->
+    <img src="https://cdn-icons-png.flaticon.com/512/1828/1828665.png" alt="Error Image" class="img-fluid my-4" width="100">
+
+    <!-- Example Messages -->
+    <h3>Try Using One of These Example Messages:</h3>
+    <ul class="list-group w-50 mx-auto my-4">
+        <li class="list-group-item clickable-message" onclick="classifyMessage('There is a fire in the forest. We need help!')">
+            There is a fire in the forest. We need help!
+        </li>
+        <li class="list-group-item clickable-message" onclick="classifyMessage('We are running out of clean water.')">
+            We are running out of clean water.
+        </li>
+        <li class="list-group-item clickable-message" onclick="classifyMessage('The bridge has collapsed due to flooding.')">
+            The bridge has collapsed due to flooding.
+        </li>
+        <li class="list-group-item clickable-message" onclick="classifyMessage('Please send medical assistance.')">
+            Please send medical assistance.
+        </li>
+    </ul>
+
+    <!-- Back to Home Button -->
+    <a href="/" class="btn btn-primary btn-lg">Back to Home</a>
+</div>
+
+<!-- JavaScript to Execute Classification -->
+<script>
+    function classifyMessage(message) {
+        const url = `/go?query=${encodeURIComponent(message)}`;
+        window.location.href = url;
+    }
+</script>
+
+<!-- Inline CSS for Hover Effect -->
+<style>
+    .clickable-message {
+        cursor: pointer;
+        transition: background-color 0.3s, color 0.3s;
+    }
+
+    .clickable-message:hover {
+        background-color: #f0f0f0;
+        color: #007bff;
+    }
+</style>
+{% endblock %}
