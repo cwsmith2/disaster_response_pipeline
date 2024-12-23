@@ -116,7 +116,7 @@ Then open your browser and navigate to: [http://0.0.0.0:3001/](http://0.0.0.0:30
 
 ## Authors
 - **CW Smith**
-- GitHub: [Your Profile](https://github.com/cwsmith2)
+- GitHub: [cwsmith2](https://github.com/cwsmith2)
 
 ---
 
