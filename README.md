@@ -12,11 +12,9 @@
    - [Running ML Pipeline](#running-ml-pipeline)
    - [Running the Web App](#running-the-web-app)
 5. [Features of the Web App](#features-of-the-web-app)
-6. [Additional Resources](#additional-resources)
-7. [Authors](#authors)
-8. [License](#license)
-9. [Acknowledgements](#acknowledgements)
-10. [Screenshots](#screenshots)
+6. [Authors](#authors)
+7. [License](#license)
+8. [Acknowledgements](#acknowledgements)
 
 ---
 
@@ -96,8 +94,14 @@ To start the Flask web application:
 ```bash
 python app/run.py
 ```
-Then open your browser and navigate to: [http://0.0.0.0:3001/](http://0.0.0.0:3001/)
+After running the app, the server will start, and you can access the web app by navigating to one of the following URLs:
 
+1. On the same machine where the app is running:
+   - Open your browser and navigate to `http://127.0.0.1:3001` or `http://localhost:3001`.
+
+2. On another device connected to the same network:
+   - Find your machine's IP address in the logs (e.g., `http://192.168.0.9:3001`).
+   - Open a browser on the other device and enter that address.
 ---
 
 ## Features of the Web App
