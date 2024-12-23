@@ -40,14 +40,13 @@
             <div class="col-lg-12 form-group-lg">
                 <form action="/go" method="get">
                     <!-- Input with Datalist -->
-                    <input list="example-messages" id="message-input" class="form-control form-control-lg" name="query" placeholder="Enter a message or select one below to classify">
-                    <datalist id="example-messages">
-                        <option value="There is a fire in the forest. We need help!">
-                        <option value="We are running out of clean water.">
-                        <option value="The bridge has collapsed due to flooding.">
-                        <option value="Please send medical assistance.">
-                    </datalist>
-
+                    <input list="example-messages" id="message-input" class="form-control form-control-lg" name="query" placeholder="Type or select a message">
+                        <datalist id="example-messages">
+                            <option value="There is a fire in the forest. We need help!"></option>
+                            <option value="We are running out of clean water."></option>
+                            <option value="The bridge has collapsed due to flooding."></option>
+                            <option value="Please send medical assistance."></option>
+                        </datalist>
                     <div class="col-lg-offset-5">
                         <button type="submit" class="btn btn-lg btn-success">Classify Message</button>
                     </div>
@@ -77,7 +76,7 @@
     const plotIds = {{ids | safe}};
     graphs.forEach((graph, i) => {
         Plotly.newPlot(plotIds[i], graph.data, graph.layout);
-});
+    });
 </script>
 
 </body>
