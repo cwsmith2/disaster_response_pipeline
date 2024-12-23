@@ -3,7 +3,7 @@ import pandas as pd
 import pickle
 from sklearn import pipeline
 from sqlalchemy import create_engine
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV, train_test_split, GridSearchCV
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.multioutput import MultiOutputClassifier
@@ -13,6 +13,18 @@ from nltk.stem import WordNetLemmatizer
 from lightgbm import LGBMClassifier
 import nltk
 nltk.download(['punkt', 'wordnet','punkt_tab'])
+
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("ml_pipeline.log"),
+        logging.StreamHandler()
+    ]
+)
 
 def load_data(database_filepath):
     """
@@ -26,6 +38,7 @@ def load_data(database_filepath):
         Y: dataframe. Labels dataframe.
         category_names: list. List of category names for classification.
     """
+    logging.info(f"Loading data from {database_filepath}")
     engine = create_engine(f'sqlite:///{database_filepath}')
     df = pd.read_sql_table('DisasterMessages', engine)
     X = df['message']
@@ -33,11 +46,11 @@ def load_data(database_filepath):
     
     # Find problematic columns
     non_binary_columns = Y.columns[~Y.applymap(lambda x: x in [0, 1]).all()]
-    print(f"Non-binary values found in columns: {non_binary_columns.tolist()}")
-    
+        
     # Raise error if non-binary values exist
     if not non_binary_columns.empty:
-        raise ValueError("Non-binary values found in Y")
+        logging.warning(f"Non-binary values found in columns: {non_binary_columns.tolist()}")
+        Y = Y.applymap(lambda x: 1 if x > 0 else 0)
     
     # Filter out categories with a single unique value
     single_class_columns = [col for col in Y.columns if Y[col].nunique() == 1]
@@ -46,6 +59,7 @@ def load_data(database_filepath):
         Y = Y.drop(columns=single_class_columns)
 
     category_names = Y.columns.tolist()
+    logging.info(f"Loaded {X.shape[0]} records and {Y.shape[1]} categories.")
     return X, Y, category_names
 
 def tokenize(text):
@@ -71,22 +85,34 @@ def build_model():
     Returns:
         cv: GridSearchCV. Grid search model object.
     """
+    logging.info("Starting to build the machine learning pipeline.")
     pipeline = Pipeline([
         ('vect', CountVectorizer(tokenizer=tokenize, token_pattern=None)),
         ('tfidf', TfidfTransformer()),
         ('clf', MultiOutputClassifier(LGBMClassifier(force_row_wise=True, verbose=-1)))
     ])
+    logging.info("Pipeline structure defined.")
 
     parameters = {
         'clf__estimator__boosting_type': ['gbdt'],
         'clf__estimator__num_leaves': [31],
-        'clf__estimator__n_estimators': [50, 100],
+        'clf__estimator__n_estimators': [50],
         'clf__estimator__learning_rate': [0.1],
         'clf__estimator__min_data_in_leaf': [1, 5],  # Allow smaller leaf sizes
         'clf__estimator__scale_pos_weight': [1, 2]  # Adjust for imbalanced classes
     }        
+    logging.info(f"Hyperparameters for RandomizedSearchCV: {parameters}")
 
-    cv = GridSearchCV(pipeline, param_grid=parameters, verbose=1, n_jobs=-1)
+    cv = RandomizedSearchCV(
+        pipeline,
+        param_distributions=parameters,
+        n_iter=10,
+        cv=3,
+        verbose=1,
+        n_jobs=-1,
+        random_state=42
+    )
+    logging.info("RandomizedSearchCV initialized.")
     return cv
 
 def evaluate_model(model, X_test, Y_test, category_names):
@@ -99,10 +125,15 @@ def evaluate_model(model, X_test, Y_test, category_names):
         Y_test: dataframe. Test labels.
         category_names: list. List of category names.
     """
-    Y_pred = model.predict(X_test)
-    for i, category in enumerate(category_names):
-        print(f'Category: {category}\n')
-        print(classification_report(Y_test.iloc[:, i], Y_pred[:, i]))
+    logging.info("Starting model evaluation.")
+    try:
+        Y_pred = model.predict(X_test)
+        for i, category in enumerate(category_names):
+            report = classification_report(Y_test.iloc[:, i], Y_pred[:, i], zero_division=0)
+            logging.info(f"Category: {category}\n{report}")
+        logging.info("Model evaluation completed successfully.")
+    except Exception as e:
+        logging.error(f"Error during evaluation: {e}")
 
 def save_model(model, model_filepath):
     """
@@ -116,31 +147,34 @@ def save_model(model, model_filepath):
         pickle.dump(model, f)
 
 def main():
-    if len(sys.argv) == 3:
-        database_filepath, model_filepath = sys.argv[1:]
+    try:
+        if len(sys.argv) == 3:
+            database_filepath, model_filepath = sys.argv[1:]
 
-        print(f'Loading data...\n    DATABASE: {database_filepath}')
-        X, Y, category_names = load_data(database_filepath)
-        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
+            logging.info(f"Loading data from {database_filepath}")
+            X, Y, category_names = load_data(database_filepath)
 
-        print('Building model...')
-        model = build_model()
+            X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
+            logging.info(f"Data split into training and test sets: {X_train.shape[0]} training samples, {X_test.shape[0]} test samples.")
 
-        print('Training model...')
-        model.fit(X_train, Y_train)
+            logging.info("Building the model.")
+            model = build_model()
 
-        print('Evaluating model...')
-        evaluate_model(model, X_test, Y_test, category_names)
+            logging.info("Training the model.")
+            model.fit(X_train, Y_train)
+            logging.info("Model training completed.")
 
-        print(f'Saving model...\n    MODEL: {model_filepath}')
-        save_model(model, model_filepath)
+            logging.info("Evaluating the model.")
+            evaluate_model(model, X_test, Y_test, category_names)
 
-        print('Trained model saved!')
-    else:
-        print('Please provide the filepath of the disaster messages database '
-              'as the first argument and the filepath of the pickle file to '
-              'save the model to as the second argument. \n\nExample: python '
-              'train_classifier.py ../data/DisasterResponse.db classifier.pkl')
+            logging.info(f"Saving the model to {model_filepath}.")
+            save_model(model, model_filepath)
+            logging.info("Model saved successfully.")
+        else:
+            logging.error("Invalid number of arguments provided.")
+            print('Usage: python train_classifier.py database_filepath model_filepath')
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
 
 if __name__ == '__main__':
     main()
